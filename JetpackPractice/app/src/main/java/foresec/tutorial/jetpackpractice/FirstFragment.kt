@@ -1,31 +1,27 @@
 package foresec.tutorial.jetpackpractice
 
+
+// FirstFragment: ViewModel을 사용하여 UI를 업데이트
+// Glide를 사용하여 이미지를 설정,
+// 개 이미지를 가져오는 데 실패하면 errorMessage LiveData에 실패 메시지가 저장
+
 import android.os.Bundle
-import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.lifecycle.lifecycleScope
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 
-
 import foresec.tutorial.jetpackpractice.databinding.FragmentFirstBinding
-import foresec.tutorial.jetpackpractice.dog.ApiService
-import foresec.tutorial.jetpackpractice.dog.Dog
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import foresec.tutorial.jetpackpractice.dog.DogViewModel
 
 class FirstFragment : Fragment() {
 
     private lateinit var binding: FragmentFirstBinding
+    private val viewModel: DogViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -42,36 +38,23 @@ class FirstFragment : Fragment() {
 
         binding.toSecondBtn.setOnClickListener {
             findNavController().navigate(R.id.action_firstFragment2_to_secondFragment)
+
         }
 
+        // 변화 관찰 중, 변화 시 해당 URL을 가져와 Glide로 이미지 설정
+        viewModel.dogImage.observe(viewLifecycleOwner, Observer { imageUrl ->
+            Glide.with(requireContext())
+                .load(imageUrl)
+                .into(binding.dogImageView)
+        })
 
-        // Retrofit 객체를 생성하는 블록을 코루틴으로 처리
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            val retrofit = Retrofit.Builder()
-                .baseUrl("https://dog.ceo/api/")
-                .addConverterFactory(GsonConverterFactory.create())
-                .build()
+        // DogViewModel의 errorMessagfe 변화 관찰 중 변화가 일어나면 해당 에러 메시지 처리
+        viewModel.errorMessage.observe(viewLifecycleOwner, Observer { errorMessage ->
+            // 에러 메시지 처리
+        })
 
-            val apiService = retrofit.create(ApiService::class.java)
-            val response = apiService.getRandomDog().execute()
-
-            // 응답을 처리하는 블록을 메인 스레드에서 실행하도록 처리
-            withContext(Dispatchers.Main) {
-                if (response.isSuccessful) {
-                    val dog = response.body()
-                    val dogImageUrl = dog?.message
-
-                    // Glide를 사용하여 이미지 로드 및 설정
-                    Glide.with(requireContext())
-                        .load(dogImageUrl)
-                        .into(binding.dogImageView)
-                    Log.d("HERE!!!!!!!!!!!!!!", "Random dog image URL: ${dog?.message}")
-                } else {
-                    Log.e("HERE!!!!!!!!!!!!!!", "Failed to fetch random dog image. Response code: ${response.code()}")
-                }
-            }
-        }
-
+        // DogViewModel의 fetchRandomDogImage 함수를 호출해 랜덤한 개 이미지를 가져옴,
+        // 이미지 URL이 변경되면 dogImage 변수가 update, 실패하면 errorMessage 변수가 업데이트
+        viewModel.fetchRandomDogImage()
     }
-
 }
